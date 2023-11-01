@@ -1,14 +1,15 @@
-from env_v1 import EnvironmentManager
-from type_valuev1 import Type, Value, create_value, get_printable
-from intbase import InterpreterBase, ErrorType
 from brewparse import parse_program
+from env_v1 import EnvironmentManager
+from intbase import ErrorType, InterpreterBase
+from type_valuev1 import Type, Value, create_value, get_printable
 
 
 # Main interpreter class
 class Interpreter(InterpreterBase):
     # constants
     NIL_VALUE = create_value(InterpreterBase.NIL_DEF)
-    BIN_OPS = {"+", "-"}
+    BIN_OPS = {"+", "-", "*", "/", "==", "<", "<=", ">", ">=", "!=", "&&", "||"}
+    UNARY_OPS = {"neg", "!"}
 
     # methods
     def __init__(self, console_output=True, inp=None, trace_output=False):
@@ -56,12 +57,15 @@ class Interpreter(InterpreterBase):
             return self.__call_input(call_node)
 
         # add code here later to call other functions
+        # probably run statements, and return the value
         super().error(ErrorType.NAME_ERROR, f"Function {func_name} not found")
 
     def __call_print(self, call_ast):
         output = ""
         for arg in call_ast.get("args"):
             result = self.__eval_expr(arg)  # result is a Value object
+            if self.trace_output:
+                print(result, result.type())
             output = output + get_printable(result)
         super().output(output)
         return Interpreter.NIL_VALUE
@@ -90,6 +94,8 @@ class Interpreter(InterpreterBase):
             return Value(Type.INT, expr_ast.get("val"))
         if expr_ast.elem_type == InterpreterBase.STRING_DEF:
             return Value(Type.STRING, expr_ast.get("val"))
+        if expr_ast.elem_type == InterpreterBase.BOOL_DEF:
+            return Value(Type.BOOL, expr_ast.get("val"))
         if expr_ast.elem_type == InterpreterBase.VAR_DEF:
             var_name = expr_ast.get("name")
             val = self.env.get(var_name)
@@ -128,3 +134,39 @@ class Interpreter(InterpreterBase):
             x.type(), x.value() - y.value()
         )
         # add other operators here later for int, string, bool, etc
+        # rest of int ops
+        self.op_to_lambda[Type.INT]["*"] = lambda x, y: Value(
+            x.type(), x.value() * y.value()
+        )
+        self.op_to_lambda[Type.INT]["/"] = lambda x, y: Value(
+            x.type(), x.value() // y.value()
+        )
+        self.op_to_lambda[Type.INT]["<"] = lambda x, y: Value(
+            Type.BOOL, x.value() < y.value()
+        )
+        self.op_to_lambda[Type.INT]["<="] = lambda x, y: Value(
+            Type.BOOL, x.value() <= y.value()
+        )
+        self.op_to_lambda[Type.INT][">"] = lambda x, y: Value(
+            Type.BOOL, x.value() > y.value()
+        )
+        self.op_to_lambda[Type.INT][">="] = lambda x, y: Value(
+            Type.BOOL, x.value() >= y.value()
+        )
+        self.op_to_lambda[Type.INT]["=="] = lambda x, y: Value(
+            Type.BOOL, x.value() == y.value()
+        )
+        self.op_to_lambda[Type.INT]["!="] = lambda x, y: Value(
+            Type.BOOL, x.value() != y.value()
+        )
+        # string
+        self.op_to_lambda[Type.STRING] = {}
+        self.op_to_lambda[Type.STRING]["+"] = lambda x, y: Value(
+            x.type(), x.value() + y.value()
+        )
+        self.op_to_lambda[Type.STRING]["=="] = lambda x, y: Value(
+            Type.BOOL, x.value() == y.value()
+        )
+        self.op_to_lambda[Type.STRING]["!="] = lambda x, y: Value(
+            Type.BOOL, x.value() != y.value()
+        )
