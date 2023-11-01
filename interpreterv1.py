@@ -1,6 +1,7 @@
 from brewparse import parse_program
 from env_v1 import EnvironmentManager
 from intbase import ErrorType, InterpreterBase
+from operations_v2 import setup_ops, setup_unary_ops
 from type_valuev1 import Type, Value, create_value, get_printable
 
 
@@ -15,7 +16,8 @@ class Interpreter(InterpreterBase):
     def __init__(self, console_output=True, inp=None, trace_output=False):
         super().__init__(console_output, inp)
         self.trace_output = trace_output
-        self.__setup_ops()
+        self.op_to_lambda = setup_ops()
+        self.unary_op_to_lambda = setup_unary_ops()
 
     # run a program that's provided in a string
     # usese the provided Parser found in brewparse.py to parse the program
@@ -64,8 +66,6 @@ class Interpreter(InterpreterBase):
         output = ""
         for arg in call_ast.get("args"):
             result = self.__eval_expr(arg)  # result is a Value object
-            if self.trace_output:
-                print(result, result.type())
             output = output + get_printable(result)
         super().output(output)
         return Interpreter.NIL_VALUE
@@ -106,6 +106,8 @@ class Interpreter(InterpreterBase):
             return self.__call_func(expr_ast)
         if expr_ast.elem_type in Interpreter.BIN_OPS:
             return self.__eval_op(expr_ast)
+        if expr_ast.elem_type in Interpreter.UNARY_OPS:
+            return self.__eval_unary_op(expr_ast)
 
     def __eval_op(self, arith_ast):
         left_value_obj = self.__eval_expr(arith_ast.get("op1"))
@@ -122,51 +124,15 @@ class Interpreter(InterpreterBase):
             )
         f = self.op_to_lambda[left_value_obj.type()][arith_ast.elem_type]
         return f(left_value_obj, right_value_obj)
-
-    def __setup_ops(self):
-        self.op_to_lambda = {}
-        # set up operations on integers
-        self.op_to_lambda[Type.INT] = {}
-        self.op_to_lambda[Type.INT]["+"] = lambda x, y: Value(
-            x.type(), x.value() + y.value()
-        )
-        self.op_to_lambda[Type.INT]["-"] = lambda x, y: Value(
-            x.type(), x.value() - y.value()
-        )
-        # add other operators here later for int, string, bool, etc
-        # rest of int ops
-        self.op_to_lambda[Type.INT]["*"] = lambda x, y: Value(
-            x.type(), x.value() * y.value()
-        )
-        self.op_to_lambda[Type.INT]["/"] = lambda x, y: Value(
-            x.type(), x.value() // y.value()
-        )
-        self.op_to_lambda[Type.INT]["<"] = lambda x, y: Value(
-            Type.BOOL, x.value() < y.value()
-        )
-        self.op_to_lambda[Type.INT]["<="] = lambda x, y: Value(
-            Type.BOOL, x.value() <= y.value()
-        )
-        self.op_to_lambda[Type.INT][">"] = lambda x, y: Value(
-            Type.BOOL, x.value() > y.value()
-        )
-        self.op_to_lambda[Type.INT][">="] = lambda x, y: Value(
-            Type.BOOL, x.value() >= y.value()
-        )
-        self.op_to_lambda[Type.INT]["=="] = lambda x, y: Value(
-            Type.BOOL, x.value() == y.value()
-        )
-        self.op_to_lambda[Type.INT]["!="] = lambda x, y: Value(
-            Type.BOOL, x.value() != y.value()
-        )
-        # string
-        self.op_to_lambda[Type.STRING] = {}
-        self.op_to_lambda[Type.STRING]["+"] = lambda x, y: Value(
-            x.type(), x.value() + y.value()
-        )
-        self.op_to_lambda[Type.STRING]["=="] = lambda x, y: Value(
-            Type.BOOL, x.value() == y.value()
-        )
-        self.op_to_lambda[Type.STRING]["!="] = lambda x, y: Value(
-            Type.BOOL, x.value() != y.value()
-        )
+    
+    def __eval_unary_op(self, arith_ast):
+        value_obj = self.__eval_expr(arith_ast.get("op1"))
+        if arith_ast.elem_type not in self.unary_op_to_lambda[value_obj.type()]:
+            super().error(
+                ErrorType.TYPE_ERROR,
+                f"Incompatible operator {arith_ast.get_type} for type {value_obj.type()}",
+            )
+        if self.trace_output:
+            print("About to exec unary lambda")
+        f = self.unary_op_to_lambda[value_obj.type()][arith_ast.elem_type]
+        return f(value_obj)

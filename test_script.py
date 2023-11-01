@@ -58,6 +58,16 @@ def main():
         print("'foo' == 'foo' ", "foo" == "foo");
         print("'foo' != 'foo' ", "foo" != "foo");
         print("'foo' + 'bar' ", "foo" + "bar");
+        print("true && false ", true && false);
+        print("true || false ", true || false);
+        print("true == false ", true == false);
+        print("true != false ", true != false);
+        print("!false ", !false);
+        f = false;
+        print("!f ", !f);
+        print("-6 ", -6);
+        s = 6;
+        print("-s ", -s);
     }
     """
 
