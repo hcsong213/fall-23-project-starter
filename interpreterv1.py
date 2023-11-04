@@ -18,6 +18,7 @@ class Interpreter(InterpreterBase):
         self.trace_output = trace_output
         self.op_to_lambda = setup_ops()
         self.unary_op_to_lambda = setup_unary_ops()
+        self.block_id_counter = 0
 
     # run a program that's provided in a string
     # usese the provided Parser found in brewparse.py to parse the program
@@ -26,7 +27,7 @@ class Interpreter(InterpreterBase):
         ast = parse_program(program)
         self.__set_up_function_table(ast)
         main_func = self.__get_func_by_name("main")
-        self.env = EnvironmentManager()
+        self.env = EnvironmentManager(self.trace_output)
         self.__run_statements(main_func.get("statements"))
 
     def __set_up_function_table(self, ast):
@@ -50,20 +51,25 @@ class Interpreter(InterpreterBase):
         """
         # all statements of a function are held in arg3 of the function AST node
         # this represents
+        block_id = self.__unique_block_id()
+        self.env.init_block_env(block_id)
+
         for statement in statements:
             # if self.trace_output:
             #     print(statement)
             if statement.elem_type == InterpreterBase.FCALL_DEF:
                 self.__call_func(statement)
             elif statement.elem_type == "=":
-                self.__assign(statement)
+                self.__assign(statement, block_id)
             # new statement types
             elif statement.elem_type == InterpreterBase.IF_DEF:
                 self.__handle_if_statement(statement)
             elif statement.elem_type == InterpreterBase.WHILE_DEF:
                 self.__handle_while_statement(statement)
+            elif statement.elem_type == InterpreterBase.RETURN_DEF:
+                return self.__handle_return_statement(statement)
 
-        return Interpreter.NIL_VALUE
+        return self.__destroy_block_and_return(block_id, Interpreter.NIL_VALUE)
 
     def __call_func(self, call_node):
         func_name = call_node.get("name")
@@ -98,10 +104,10 @@ class Interpreter(InterpreterBase):
             return Value(Type.INT, int(inp))
         # we can support inputs here later
 
-    def __assign(self, assign_ast):
+    def __assign(self, assign_ast, block_id):
         var_name = assign_ast.get("name")
         value_obj = self.__eval_expr(assign_ast.get("expression"))
-        self.env.set(var_name, value_obj)
+        self.env.set(var_name, value_obj, block_id)
 
     def __handle_if_statement(self, statement):
         condition = self.__eval_expr(statement.get("condition"))
@@ -130,6 +136,12 @@ class Interpreter(InterpreterBase):
                     ErrorType.TYPE_ERROR,
                     f"Condition type in while is {condition.type()}, expected Type.BOOL",
                 )
+
+    def __handle_return_statement(self, statement):
+        unevaluated_expr = statement.get("expression")
+        if unevaluated_expr is None:
+            return Interpreter.NIL_VALUE
+        return self.__eval_expr(unevaluated_expr)
 
     def __eval_expr(self, expr_ast):
         if expr_ast.elem_type == InterpreterBase.INT_DEF:
@@ -176,3 +188,11 @@ class Interpreter(InterpreterBase):
             )
         f = self.unary_op_to_lambda[value_obj.type()][arith_ast.elem_type]
         return f(value_obj)
+
+    def __unique_block_id(self):
+        self.block_id_counter = self.block_id_counter + 1
+        return self.block_id_counter
+
+    def __destroy_block_and_return(self, block_id, ret):
+        self.env.destroy_block_env(block_id)
+        return ret
