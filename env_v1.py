@@ -14,4 +14,10 @@ class EnvironmentManager:
 
     # Sets the data associated with a variable name
     def set(self, symbol, value):
+        """Sets the data associated with a variable name
+
+        Args:
+            symbol (string): Variable name
+            value (Value): Value object mapped to by the name
+        """
         self.environment[symbol] = value

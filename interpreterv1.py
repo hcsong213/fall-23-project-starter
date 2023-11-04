@@ -40,7 +40,16 @@ class Interpreter(InterpreterBase):
         return self.func_name_to_ast[name]
 
     def __run_statements(self, statements):
+        """Execute a block of statements then clean up variables about to go out of scope upon finishing
+
+        Args:
+            statements ([Statement]): Iterable of statements representing a Block
+
+        Returns:
+            Any: return value if the Block is a function. This value is meaningless for other Blocks.
+        """
         # all statements of a function are held in arg3 of the function AST node
+        # this represents
         for statement in statements:
             # if self.trace_output:
             #     print(statement)
@@ -50,16 +59,9 @@ class Interpreter(InterpreterBase):
                 self.__assign(statement)
             # new statement types
             elif statement.elem_type == InterpreterBase.IF_DEF:
-                condition = self.__eval_expr(statement.get("condition"))
-                if condition.type() is not Type.BOOL:
-                    super().error(
-                        ErrorType.TYPE_ERROR,
-                        f"Condition type is {condition.type()}, expected Type.BOOL",
-                    )
-                if condition.value():
-                    self.__run_statements(statement.get("statements"))
-                elif statement.get("else_statements") is not None:
-                    self.__run_statements(statement.get("else_statements"))
+                self.__handle_if_statement(statement)
+            elif statement.elem_type == InterpreterBase.WHILE_DEF:
+                self.__handle_while_statement(statement)
 
         return Interpreter.NIL_VALUE
 
@@ -100,6 +102,34 @@ class Interpreter(InterpreterBase):
         var_name = assign_ast.get("name")
         value_obj = self.__eval_expr(assign_ast.get("expression"))
         self.env.set(var_name, value_obj)
+
+    def __handle_if_statement(self, statement):
+        condition = self.__eval_expr(statement.get("condition"))
+        if condition.type() is not Type.BOOL:
+            super().error(
+                ErrorType.TYPE_ERROR,
+                f"Condition type in if is {condition.type()}, expected Type.BOOL",
+            )
+        if condition.value():
+            self.__run_statements(statement.get("statements"))
+        elif statement.get("else_statements") is not None:
+            self.__run_statements(statement.get("else_statements"))
+
+    def __handle_while_statement(self, statement):
+        condition = self.__eval_expr(statement.get("condition"))
+        if condition.type() is not Type.BOOL:
+            super().error(
+                ErrorType.TYPE_ERROR,
+                f"Condition type in while is {condition.type()}, expected Type.BOOL",
+            )
+        while condition.value():
+            self.__run_statements(statement.get("statements"))
+            condition = self.__eval_expr(statement.get("condition"))
+            if condition.type() is not Type.BOOL:
+                super().error(
+                    ErrorType.TYPE_ERROR,
+                    f"Condition type in while is {condition.type()}, expected Type.BOOL",
+                )
 
     def __eval_expr(self, expr_ast):
         if expr_ast.elem_type == InterpreterBase.INT_DEF:

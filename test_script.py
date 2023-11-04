@@ -2,7 +2,7 @@ from interpreterv1 import Interpreter
 
 
 def main():
-    i = Interpreter(trace_output=False)
+    i = Interpreter(trace_output=True)
 
     prog = """
     func main() {   
@@ -46,6 +46,10 @@ def main():
 
     # i.run(prog1)
 
+    ##################################################
+    ## Operations test
+    ##################################################
+
     prog1 = """
     func main() {
         print("1 < 2 ", 1 < 2);
@@ -72,6 +76,10 @@ def main():
     """
 
     i.run(prog1)
+
+    ##################################################
+    ## if test
+    ##################################################
 
     prog = """
     func main() {   
@@ -138,6 +146,22 @@ def main():
 
     i.run(prog)
 
+    ##################################################
+    ## while test
+    ##################################################
+
+    prog = """
+    func main() {   
+        x = 0;
+        while(x < 10) {
+            print("x = ", x);
+            x = x + 1;
+        }
+    }
+    """
+
+    i.run(prog)
+
     # badprog = """
     # func main() {
     #     i = inputi("Please enter a number: ", "foo bar") + 10;
@@ -171,15 +195,15 @@ def main():
 
     # i.run(badprog)
 
-    badprog = """
-    func main() {   
-        if("not a boolean") {
-            print("illegal");
-        }
-    }
-    """
+    # badprog = """
+    # func main() {   
+    #     if("not a boolean") {
+    #         print("illegal");
+    #     }
+    # }
+    # """
 
-    i.run(badprog)
+    # i.run(badprog)
 
 
 if __name__ == "__main__":
