@@ -73,6 +73,71 @@ def main():
 
     i.run(prog1)
 
+    prog = """
+    func main() {   
+        if (true) {
+            print("Correctly executed 'if' for true");
+        }
+        print("foobar");
+    }
+    """
+
+    i.run(prog)
+
+    prog = """
+    func main() {   
+        if (true) {
+            print("Correctly executed 'if' for true");
+        } else {
+            print("bad");
+        }
+        print("foobar");
+    }
+    """
+
+    i.run(prog)
+
+    prog = """
+    func main() {   
+        if (false) {
+            print("bad");
+        } else {
+            print("Correctly executed 'else' for false");
+        }
+        print("foobar");
+    }
+    """
+
+    i.run(prog)
+
+    prog = """
+    func main() {   
+        if (1 > 2) {
+            print("bad");
+        } else {
+            print("Correctly executed 'else' for false");
+        }
+        print("foobar");
+    }
+    """
+
+    i.run(prog)
+
+    prog = """
+    func main() {   
+        x = 1 > 2;
+        print(x);
+        if (x) {
+            print("bad");
+        } else {
+            print("Correctly executed 'else' for false");
+        }
+        print("foobar");
+    }
+    """
+
+    i.run(prog)
+
     # badprog = """
     # func main() {
     #     i = inputi("Please enter a number: ", "foo bar") + 10;
@@ -105,6 +170,16 @@ def main():
     # """
 
     # i.run(badprog)
+
+    badprog = """
+    func main() {   
+        if("not a boolean") {
+            print("illegal");
+        }
+    }
+    """
+
+    i.run(badprog)
 
 
 if __name__ == "__main__":

@@ -42,12 +42,24 @@ class Interpreter(InterpreterBase):
     def __run_statements(self, statements):
         # all statements of a function are held in arg3 of the function AST node
         for statement in statements:
-            if self.trace_output:
-                print(statement)
+            # if self.trace_output:
+            #     print(statement)
             if statement.elem_type == InterpreterBase.FCALL_DEF:
                 self.__call_func(statement)
             elif statement.elem_type == "=":
                 self.__assign(statement)
+            # new statement types
+            elif statement.elem_type == InterpreterBase.IF_DEF:
+                condition = self.__eval_expr(statement.get("condition"))
+                if condition.type() is not Type.BOOL:
+                    super().error(
+                        ErrorType.TYPE_ERROR,
+                        f"Condition type is {condition.type()}, expected Type.BOOL",
+                    )
+                if condition.value():
+                    self.__run_statements(statement.get("statements"))
+                elif statement.get("else_statements") is not None:
+                    self.__run_statements(statement.get("else_statements"))
 
         return Interpreter.NIL_VALUE
 
@@ -124,7 +136,7 @@ class Interpreter(InterpreterBase):
             )
         f = self.op_to_lambda[left_value_obj.type()][arith_ast.elem_type]
         return f(left_value_obj, right_value_obj)
-    
+
     def __eval_unary_op(self, arith_ast):
         value_obj = self.__eval_expr(arith_ast.get("op1"))
         if arith_ast.elem_type not in self.unary_op_to_lambda[value_obj.type()]:
@@ -132,7 +144,5 @@ class Interpreter(InterpreterBase):
                 ErrorType.TYPE_ERROR,
                 f"Incompatible operator {arith_ast.get_type} for type {value_obj.type()}",
             )
-        if self.trace_output:
-            print("About to exec unary lambda")
         f = self.unary_op_to_lambda[value_obj.type()][arith_ast.elem_type]
         return f(value_obj)
