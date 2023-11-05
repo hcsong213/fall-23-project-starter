@@ -22,18 +22,18 @@ def main():
 
     i.run(prog)
 
-    prog1 = """
-    func main() {
-        i = inputi("Please enter a number: ");
-        x = 5 + i;
-        y = 6 + x;
-        print("input: ", i);
-        print("The input + 5 is: ", x);
-        print("y = x + 6 is: ", y);
-    }
-    """
+    # prog1 = """
+    # func main() {
+    #     i = inputi("Please enter a number: ");
+    #     x = 5 + i;
+    #     y = 6 + x;
+    #     print("input: ", i);
+    #     print("The input + 5 is: ", x);
+    #     print("y = x + 6 is: ", y);
+    # }
+    # """
 
-    i.run(prog1)
+    # i.run(prog1)
 
     # prog1 = """
     # func main() {
@@ -193,8 +193,22 @@ def main():
 
     prog = """
     func main() {
-        inp = inputs("echo: ");
-        print(inp);
+        a = 5;
+        foo();
+        foo(10);
+        foo(20,30);
+    }
+
+    func foo() {
+        print(a);
+    }
+
+    func foo(a) {
+        print(a);
+    }
+
+    func foo(a,b) {
+        print(a," ",b);
     }
     """
 
@@ -260,13 +274,21 @@ def main():
     # func main() {
     #     a = 10;
     #     b = 20;
-    #     bar();
+    #     bar(a, b);
     #     print("main: ", a, " ", b);  /* prints bar: 10 21 */
-    #     print(c);  /* should fail */
     # }
     # """
 
     # i.run(badprog)
+
+    badprog = """
+    func main() {
+        print(!false);
+        print(!2);
+    }
+    """
+
+    i.run(badprog)
 
 
 if __name__ == "__main__":

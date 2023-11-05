@@ -12,6 +12,14 @@ class EnvironmentManager:
 
     # Gets the data associated a variable name
     def get(self, symbol):
+        """Return the value corresponding to symbol at the highest possible scope. Return None if no such symbol is alive.
+
+        Args:
+            symbol (string): name of the variable
+
+        Returns:
+            Any: value of variable or None if no variable corresponding to symbol is alive
+        """
         for block_env in self.environment.values():
             # if self.trace_output:
             #     print("Looking through block: ", block_env)

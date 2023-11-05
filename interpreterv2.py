@@ -18,7 +18,6 @@ class Interpreter(InterpreterBase):
         self.trace_output = trace_output
         self.op_to_lambda = setup_ops()
         self.unary_op_to_lambda = setup_unary_ops()
-        self.func_name_to_ast = {}
         self.block_id_counter = 0
 
     # run a program that's provided in a string
@@ -32,13 +31,24 @@ class Interpreter(InterpreterBase):
         self.__run_statements(main_func.get("statements"))
 
     def __set_up_function_table(self, ast):
+        self.func_name_to_ast = {}
         for func_def in ast.get("functions"):
-            self.func_name_to_ast[func_def.get("name")] = func_def
+            if func_def.get("name") not in self.func_name_to_ast:
+                self.func_name_to_ast[func_def.get("name")] = {}
+            self.func_name_to_ast[func_def.get("name")][
+                len(func_def.get("args"))
+            ] = func_def
+        if self.trace_output:
+            print(self.func_name_to_ast)
 
-    def __get_func_by_name(self, name):
+    def __get_func_by_name(self, name, num_args=0):
         if name not in self.func_name_to_ast:
             super().error(ErrorType.NAME_ERROR, f"Function {name} not found")
-        return self.func_name_to_ast[name]
+        if num_args not in self.func_name_to_ast[name]:
+            super().error(
+                ErrorType.NAME_ERROR, f"Function {name} with {num_args} args not found"
+            )
+        return self.func_name_to_ast[name][num_args]
 
     def __run_statements(self, statements):
         """Execute a block of statements then clean up variables about to go out of scope upon finishing
@@ -49,8 +59,6 @@ class Interpreter(InterpreterBase):
         Returns:
             Any: return value if the Block is a function. This value is meaningless for other Blocks.
         """
-        # all statements of a function are held in arg3 of the function AST node
-        # this represents
         block_id = self.__unique_block_id()
         self.env.init_block_env(block_id)
 
@@ -78,8 +86,20 @@ class Interpreter(InterpreterBase):
         if func_name == "inputi" or func_name == "inputs":
             return self.__call_input(call_node)
 
-        func = self.__get_func_by_name(func_name)
+        func = self.__get_func_by_name(
+            func_name, len(call_node.get("args"))
+        )  # includes NAME_ERROR check
+
+        # block_id = self.__unique_block_id()
+        # self.env.init_block_env(block_id)
+        # add params to top scope and initialize them to the evaluations of the corresponding args
+
         self.__run_statements(func.get("statements"))
+
+        # clean up the args
+
+
+
 
     def __call_print(self, call_ast):
         output = ""
@@ -96,14 +116,13 @@ class Interpreter(InterpreterBase):
             super().output(get_printable(result))
         elif args is not None and len(args) > 1:
             super().error(
-                ErrorType.NAME_ERROR, "No inputi() function that takes > 1 parameter"
+                ErrorType.NAME_ERROR, "No input function that takes > 1 parameter"
             )
         inp = super().get_input()
         if call_ast.get("name") == "inputi":
             return Value(Type.INT, int(inp))
         if call_ast.get("name") == "inputs":
             return Value(Type.STRING, inp)
-        # we can support inputs here later
 
     def __assign(self, assign_ast, block_id):
         var_name = assign_ast.get("name")
@@ -151,6 +170,8 @@ class Interpreter(InterpreterBase):
             return Value(Type.STRING, expr_ast.get("val"))
         if expr_ast.elem_type == InterpreterBase.BOOL_DEF:
             return Value(Type.BOOL, expr_ast.get("val"))
+        if expr_ast.elem_type == InterpreterBase.NIL_DEF:
+            return Interpreter.NIL_VALUE
         if expr_ast.elem_type == InterpreterBase.VAR_DEF:
             var_name = expr_ast.get("name")
             val = self.env.get(var_name)
@@ -170,12 +191,12 @@ class Interpreter(InterpreterBase):
         if left_value_obj.type() != right_value_obj.type():
             super().error(
                 ErrorType.TYPE_ERROR,
-                f"Incompatible types for {arith_ast.elem_type} operation",
+                f"Incompatible types for {arith_ast.elem_type} operation (different types)",
             )
         if arith_ast.elem_type not in self.op_to_lambda[left_value_obj.type()]:
             super().error(
                 ErrorType.TYPE_ERROR,
-                f"Incompatible operator {arith_ast.get_type} for type {left_value_obj.type()}",
+                f"Incompatible operator {arith_ast.elem_type} for type {left_value_obj.type()}",
             )
         f = self.op_to_lambda[left_value_obj.type()][arith_ast.elem_type]
         return f(left_value_obj, right_value_obj)
@@ -185,7 +206,7 @@ class Interpreter(InterpreterBase):
         if arith_ast.elem_type not in self.unary_op_to_lambda[value_obj.type()]:
             super().error(
                 ErrorType.TYPE_ERROR,
-                f"Incompatible operator {arith_ast.get_type} for type {value_obj.type()}",
+                f"Incompatible operator {arith_ast.elem_type} for type {value_obj.type()}",
             )
         f = self.unary_op_to_lambda[value_obj.type()][arith_ast.elem_type]
         return f(value_obj)
@@ -197,3 +218,7 @@ class Interpreter(InterpreterBase):
     def __destroy_block_and_return(self, block_id, ret):
         self.env.destroy_block_env(block_id)
         return ret
+
+    # def __link_args_to_params(self, args, params, block_id):
+    #     for a, p in zip(args, params):
+    #         self.env.set(p, a, block_id)
