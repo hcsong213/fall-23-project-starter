@@ -18,6 +18,7 @@ class Interpreter(InterpreterBase):
         self.trace_output = trace_output
         self.op_to_lambda = setup_ops()
         self.unary_op_to_lambda = setup_unary_ops()
+        self.func_name_to_ast = {}
         self.block_id_counter = 0
 
     # run a program that's provided in a string
@@ -31,7 +32,6 @@ class Interpreter(InterpreterBase):
         self.__run_statements(main_func.get("statements"))
 
     def __set_up_function_table(self, ast):
-        self.func_name_to_ast = {}
         for func_def in ast.get("functions"):
             self.func_name_to_ast[func_def.get("name")] = func_def
 
@@ -75,12 +75,11 @@ class Interpreter(InterpreterBase):
         func_name = call_node.get("name")
         if func_name == "print":
             return self.__call_print(call_node)
-        if func_name == "inputi":
+        if func_name == "inputi" or func_name == "inputs":
             return self.__call_input(call_node)
 
-        # add code here later to call other functions
-        # probably run statements, and return the value
-        super().error(ErrorType.NAME_ERROR, f"Function {func_name} not found")
+        func = self.__get_func_by_name(func_name)
+        self.__run_statements(func.get("statements"))
 
     def __call_print(self, call_ast):
         output = ""
@@ -102,6 +101,8 @@ class Interpreter(InterpreterBase):
         inp = super().get_input()
         if call_ast.get("name") == "inputi":
             return Value(Type.INT, int(inp))
+        if call_ast.get("name") == "inputs":
+            return Value(Type.STRING, inp)
         # we can support inputs here later
 
     def __assign(self, assign_ast, block_id):

@@ -22,17 +22,18 @@ def main():
 
     i.run(prog)
 
-    # prog1 = """
-    # func main() {
-    #     i = inputi("Please enter a number: ");
-    #     x = 5 + i;
-    #     y = 6 + x;
-    #     print("The sum is: ", x);
-    #     print("y = x + 6 is: ", y);
-    # }
-    # """
+    prog1 = """
+    func main() {
+        i = inputi("Please enter a number: ");
+        x = 5 + i;
+        y = 6 + x;
+        print("input: ", i);
+        print("The input + 5 is: ", x);
+        print("y = x + 6 is: ", y);
+    }
+    """
 
-    # i.run(prog1)
+    i.run(prog1)
 
     # prog1 = """
     # func main() {
@@ -162,6 +163,43 @@ def main():
 
     i.run(prog)
 
+    ##################################################
+    ## function call test
+    ##################################################
+
+    prog = """
+    func foo() {
+        /* a, b and c are in scope here! */
+        print("foo: ", a, " ", b, " ", c);   /* prints foo: 10 20 30 */
+        b = b + 1;                           /* b is set to 21 */
+    }
+
+    func bar() {
+        /* a, and b are in scope here! */
+        print("bar: ", a, " ", b);   /* prints bar: 10 20 */
+        c = 30;
+        foo();
+    } 
+
+    func main() {
+        a = 10;
+        b = 20;
+        bar();
+        print("main: ", a, " ", b);  /* prints bar: 10 21 */
+    }
+    """
+
+    i.run(prog)
+
+    prog = """
+    func main() {
+        inp = inputs("echo: ");
+        print(inp);
+    }
+    """
+
+    i.run(prog)
+
     # badprog = """
     # func main() {
     #     i = inputi("Please enter a number: ", "foo bar") + 10;
@@ -200,6 +238,31 @@ def main():
     #     if("not a boolean") {
     #         print("illegal");
     #     }
+    # }
+    # """
+
+    # i.run(badprog)
+
+    # badprog = """
+    # func foo() {
+    #     /* a, b and c are in scope here! */
+    #     print("foo: ", a, " ", b, " ", c);   /* prints foo: 10 20 30 */
+    #     b = b + 1;                           /* b is set to 21 */
+    # }
+
+    # func bar() {
+    #     /* a, and b are in scope here! */
+    #     print("bar: ", a, " ", b);   /* prints bar: 10 20 */
+    #     c = 30;
+    #     foo();
+    # } 
+
+    # func main() {
+    #     a = 10;
+    #     b = 20;
+    #     bar();
+    #     print("main: ", a, " ", b);  /* prints bar: 10 21 */
+    #     print(c);  /* should fail */
     # }
     # """
 
