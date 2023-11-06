@@ -2,7 +2,7 @@ from interpreterv2 import Interpreter
 
 
 def main():
-    i = Interpreter(trace_output=True)
+    i = Interpreter(trace_output=False)
 
     prog = """
     func main() {   
@@ -209,6 +209,19 @@ def main():
 
     func foo(a,b) {
         print(a," ",b);
+    }
+    """
+
+    i.run(prog)
+
+    prog = """
+    func main() {
+        print(fact(5));
+    }
+
+    func fact(n) {
+        if (n <= 1) { return 1; }
+        return n * fact(n-1);
     }
     """
 

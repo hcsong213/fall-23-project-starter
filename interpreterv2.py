@@ -1,3 +1,5 @@
+import copy
+
 from brewparse import parse_program
 from env_v1 import EnvironmentManager
 from intbase import ErrorType, InterpreterBase
@@ -39,7 +41,7 @@ class Interpreter(InterpreterBase):
                 len(func_def.get("args"))
             ] = func_def
         if self.trace_output:
-            print(self.func_name_to_ast)
+            print("Function: ", self.func_name_to_ast)
 
     def __get_func_by_name(self, name, num_args=0):
         if name not in self.func_name_to_ast:
@@ -57,27 +59,32 @@ class Interpreter(InterpreterBase):
             statements ([Statement]): Iterable of statements representing a Block
 
         Returns:
-            Any: return value if the Block is a function. This value is meaningless for other Blocks.
+            Value | None: Value Node if the statements include a return statement. None otherwise.
         """
-        block_id = self.__unique_block_id()
-        self.env.init_block_env(block_id)
+        self.env.init_block_env()
 
         for statement in statements:
-            # if self.trace_output:
-            #     print(statement)
+            res = None
             if statement.elem_type == InterpreterBase.FCALL_DEF:
-                self.__call_func(statement)
+                res = self.__call_func(statement)
             elif statement.elem_type == "=":
-                self.__assign(statement, block_id)
+                self.__assign(statement)
             # new statement types
             elif statement.elem_type == InterpreterBase.IF_DEF:
-                self.__handle_if_statement(statement)
+                res = self.__handle_if_statement(statement)
             elif statement.elem_type == InterpreterBase.WHILE_DEF:
-                self.__handle_while_statement(statement)
+                res = self.__handle_while_statement(statement)
             elif statement.elem_type == InterpreterBase.RETURN_DEF:
-                return self.__handle_return_statement(statement)
+                # if self.trace_output:
+                #     print("Executing return")
+                return self.__destroy_block_and_return(
+                    self.__handle_return_statement(statement)
+                )
 
-        return self.__destroy_block_and_return(block_id, Interpreter.NIL_VALUE)
+            if res is not None:
+                return res
+
+        return self.__destroy_block_and_return(None)
 
     def __call_func(self, call_node):
         func_name = call_node.get("name")
@@ -90,16 +97,19 @@ class Interpreter(InterpreterBase):
             func_name, len(call_node.get("args"))
         )  # includes NAME_ERROR check
 
-        # block_id = self.__unique_block_id()
-        # self.env.init_block_env(block_id)
+        self.env.init_block_env()
+
         # add params to top scope and initialize them to the evaluations of the corresponding args
+        for param_elem, arg_elem in zip(func.get("args"), call_node.get("args")):
+            param = param_elem.get("name")
+            arg = self.__eval_expr(arg_elem)
+            if self.trace_output:
+                print("param and arg: ", param, arg.value())
+            self.env.set_at_top_scope(param, arg)
 
-        self.__run_statements(func.get("statements"))
-
-        # clean up the args
-
-
-
+        return self.__destroy_block_and_return(
+            self.__run_statements(func.get("statements"))
+        )
 
     def __call_print(self, call_ast):
         output = ""
@@ -107,7 +117,7 @@ class Interpreter(InterpreterBase):
             result = self.__eval_expr(arg)  # result is a Value object
             output = output + get_printable(result)
         super().output(output)
-        return Interpreter.NIL_VALUE
+        return None
 
     def __call_input(self, call_ast):
         args = call_ast.get("args")
@@ -124,22 +134,26 @@ class Interpreter(InterpreterBase):
         if call_ast.get("name") == "inputs":
             return Value(Type.STRING, inp)
 
-    def __assign(self, assign_ast, block_id):
+    def __assign(self, assign_ast):
         var_name = assign_ast.get("name")
         value_obj = self.__eval_expr(assign_ast.get("expression"))
-        self.env.set(var_name, value_obj, block_id)
+        self.env.set(var_name, value_obj)
 
     def __handle_if_statement(self, statement):
         condition = self.__eval_expr(statement.get("condition"))
+        if self.trace_output:
+            print("If condition: ", condition.value())
         if condition.type() is not Type.BOOL:
             super().error(
                 ErrorType.TYPE_ERROR,
                 f"Condition type in if is {condition.type()}, expected Type.BOOL",
             )
+        res = None
         if condition.value():
-            self.__run_statements(statement.get("statements"))
+            res = self.__run_statements(statement.get("statements"))
         elif statement.get("else_statements") is not None:
-            self.__run_statements(statement.get("else_statements"))
+            res = self.__run_statements(statement.get("else_statements"))
+        return res
 
     def __handle_while_statement(self, statement):
         condition = self.__eval_expr(statement.get("condition"))
@@ -149,7 +163,9 @@ class Interpreter(InterpreterBase):
                 f"Condition type in while is {condition.type()}, expected Type.BOOL",
             )
         while condition.value():
-            self.__run_statements(statement.get("statements"))
+            res = self.__run_statements(statement.get("statements"))
+            if res is not None:
+                return res
             condition = self.__eval_expr(statement.get("condition"))
             if condition.type() is not Type.BOOL:
                 super().error(
@@ -158,12 +174,28 @@ class Interpreter(InterpreterBase):
                 )
 
     def __handle_return_statement(self, statement):
+        """Return Value Node corresponding to the value returned
+
+        Args:
+            statement (Statement): Return Statement Node to process
+
+        Returns:
+            Value: Value to return
+        """
         unevaluated_expr = statement.get("expression")
         if unevaluated_expr is None:
             return Interpreter.NIL_VALUE
         return self.__eval_expr(unevaluated_expr)
 
     def __eval_expr(self, expr_ast):
+        """Evaluates the Expression and returns a Value
+
+        Args:
+            expr_ast (Expression): Expression Node to evaluate
+
+        Returns:
+            Value: Evaluated Expression
+        """
         if expr_ast.elem_type == InterpreterBase.INT_DEF:
             return Value(Type.INT, expr_ast.get("val"))
         if expr_ast.elem_type == InterpreterBase.STRING_DEF:
@@ -211,13 +243,10 @@ class Interpreter(InterpreterBase):
         f = self.unary_op_to_lambda[value_obj.type()][arith_ast.elem_type]
         return f(value_obj)
 
-    def __unique_block_id(self):
-        self.block_id_counter = self.block_id_counter + 1
-        return self.block_id_counter
-
-    def __destroy_block_and_return(self, block_id, ret):
-        self.env.destroy_block_env(block_id)
-        return ret
+    def __destroy_block_and_return(self, ret):
+        ret_deep_copy = copy.deepcopy(ret)
+        self.env.destroy_block_env()
+        return ret_deep_copy
 
     # def __link_args_to_params(self, args, params, block_id):
     #     for a, p in zip(args, params):

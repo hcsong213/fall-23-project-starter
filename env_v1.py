@@ -4,11 +4,11 @@
 # and a value (e.g., Int, 10).
 class EnvironmentManager:
     def __init__(self, trace_output):
-        self.environment = {}
+        self.environment = [{}]
         self.trace_output = trace_output
 
-    def init_block_env(self, block_id):
-        self.environment[block_id] = {}
+    def init_block_env(self):  # push to stack
+        self.environment.append({})
 
     # Gets the data associated a variable name
     def get(self, symbol):
@@ -20,28 +20,37 @@ class EnvironmentManager:
         Returns:
             Any: value of variable or None if no variable corresponding to symbol is alive
         """
-        for block_env in self.environment.values():
-            # if self.trace_output:
-            #     print("Looking through block: ", block_env)
-            if symbol in block_env:
-                return block_env[symbol]
+        # Citation: The following code was generated using ChatGPT 3.5
+        for scope in reversed(self.environment):
+            if symbol in scope:
+                return scope[symbol]
         return None
+        # End of copied code
 
     # Sets the data associated with a variable name
-    def set(self, symbol, value, block_id):
-        """Sets the data associated with a variable name
+    def set(self, symbol, value):
+        for scope in reversed(self.environment):
+            if symbol in scope:
+                scope[symbol] = value
+                return
+        # Var with symbol as name doesn't exist yet
+        self.set_at_top_scope(symbol, value)
+
+    def set_at_top_scope(self, symbol, value):
+        """Forcefully shadows any variable to redeclare that variable at top scope.
+
+        Should only be used at the beginning of function calls with params or as a helper function
+        in this class.
 
         Args:
-            symbol (string): Variable name
-            value (Value): Value object mapped to by the name
+            symbol (string): name of var
+            value (Value): value of var
         """
-        # Check if the symbol is already defined and in scope.
-        for block_env in self.environment.values():
-            if symbol in block_env:
-                block_env[symbol] = value
-                return
-        # If not, instantiate a new variable.
-        self.environment[block_id][symbol] = value
+        # Citation: The following code was generated using ChatGPT 3.5
+        self.environment[-1][symbol] = value
+        # End of copied code
 
-    def destroy_block_env(self, block_id):
-        del self.environment[block_id]
+    def destroy_block_env(self):
+        # Citation: The following code was generated using ChatGPT 3.5
+        self.environment.pop()
+        # End of copied code
