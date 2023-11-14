@@ -3,7 +3,7 @@ from enum import Enum
 
 from brewparse import parse_program
 from env_v2 import EnvironmentManager
-from intbase import InterpreterBase, ErrorType
+from intbase import ErrorType, InterpreterBase
 from type_valuev2 import Type, Value, create_value, get_printable
 
 
@@ -30,8 +30,8 @@ class Interpreter(InterpreterBase):
     # into an abstract syntax tree (ast)
     def run(self, program):
         ast = parse_program(program)
-        self.__set_up_function_table(ast)
         self.env = EnvironmentManager()
+        self.__set_up_function_table(ast)
         main_func = self.__get_func_by_name("main", 0)
         self.__run_statements(main_func.get("statements"))
 
@@ -44,7 +44,22 @@ class Interpreter(InterpreterBase):
                 self.func_name_to_ast[func_name] = {}
             self.func_name_to_ast[func_name][num_params] = func_def
 
+        for name, overloads in self.func_name_to_ast.items():
+            if self.trace_output:
+                print(overloads)
+                print(len(overloads))
+            if len(overloads) == 1:
+                if self.trace_output:
+                    print("function variable alias created")
+                self.env.create_bottom(name, Value(InterpreterBase.FUNC_DEF, name))
+
     def __get_func_by_name(self, name, num_params):
+        # check vars
+        func_value =  self.env.get_bottom(name)
+        if func_value is not None:
+            func_name = func_value.value()
+            return self.func_name_to_ast[func_name][num_params]
+        # else, check self.func_name_to_ast (needed for overloaded functions)
         if name not in self.func_name_to_ast:
             super().error(ErrorType.NAME_ERROR, f"Function {name} not found")
         candidate_funcs = self.func_name_to_ast[name]
@@ -89,6 +104,8 @@ class Interpreter(InterpreterBase):
             return self.__call_input(call_node)
 
         actual_args = call_node.get("args")
+        # check environment for variables whose name is func_name
+        # check self.func_name_to_ast
         func_ast = self.__get_func_by_name(func_name, len(actual_args))
         formal_args = func_ast.get("args")
         if len(actual_args) != len(formal_args):
@@ -131,18 +148,17 @@ class Interpreter(InterpreterBase):
     def __assign(self, assign_ast):
         var_name = assign_ast.get("name")
         value_obj = self.__eval_expr(assign_ast.get("expression"))
-        self.env.set(var_name, value_obj)
+        if value_obj.type() == InterpreterBase.FUNC_DEF:
+            self.env.create_bottom(var_name, value_obj)
+        else:
+            self.env.set(var_name, value_obj)
 
     def __eval_expr(self, expr_ast):
-        # print("here expr")
-        # print("type: " + str(expr_ast.elem_type))
         if expr_ast.elem_type == InterpreterBase.NIL_DEF:
-            # print("getting as nil")
             return Interpreter.NIL_VALUE
         if expr_ast.elem_type == InterpreterBase.INT_DEF:
             return Value(Type.INT, expr_ast.get("val"))
         if expr_ast.elem_type == InterpreterBase.STRING_DEF:
-            # print("getting as str")
             return Value(Type.STRING, expr_ast.get("val"))
         if expr_ast.elem_type == InterpreterBase.BOOL_DEF:
             return Value(Type.BOOL, expr_ast.get("val"))
@@ -177,10 +193,6 @@ class Interpreter(InterpreterBase):
                 f"Incompatible operator {arith_ast.elem_type} for type {left_value_obj.type()}",
             )
         f = self.op_to_lambda[left_value_obj.type()][arith_ast.elem_type]
-        # print("here eval")
-        # print(arith_ast)
-        # print("evaluating " + str(left_value_obj.type()) + " " + str(arith_ast.elem_type))
-        # print("obj left: " + str(left_value_obj.value()))
         return f(left_value_obj, right_value_obj)
 
     def __compatible_types(self, oper, obj1, obj2):

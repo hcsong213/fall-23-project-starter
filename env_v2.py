@@ -33,3 +33,20 @@ class EnvironmentManager:
     # used when we exit a nested block to discard the environment for that block
     def pop(self):
         self.environment.pop()
+
+    def create_bottom(self, symbol, value):
+        self.environment[0][symbol] = value
+
+    def get_bottom(self, symbol):
+        """Get (Value object representing a func signature) by (function alias/symbol)
+
+        Args:
+            symbol (string): function alias
+
+        Returns:
+            Value: Value node representing function signature
+        """
+        if symbol in self.environment[0]:
+            return self.environment[0][symbol]
+
+        return None
