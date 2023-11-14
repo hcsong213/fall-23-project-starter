@@ -2,7 +2,26 @@ from interpreterv2 import Interpreter
 
 
 def main():
-    i = Interpreter(trace_output=False)
+    i = Interpreter(trace_output=True)
+    
+    prog = """
+    func main() {
+        print(fib(5));
+    }
+
+    func fib(n) {
+        if (n < 3) {
+            return 1;
+        } else {
+            return fib(n-2) + fib(n-1);
+        }
+    }
+    """
+
+    i.run(prog)
+
+def notmain():
+    i = Interpreter(trace_output=True)
 
     prog = """
     func main() {   
@@ -227,6 +246,22 @@ def main():
 
     i.run(prog)
 
+    prog = """
+    func main() {
+        print(fib(5));
+    }
+
+    func fib(n) {
+        if (n < 3) {
+            return 1;
+        } else {
+            return fib(n-2) + fib(n-1);
+        }
+    }
+    """
+
+    i.run(prog)
+
     # badprog = """
     # func main() {
     #     i = inputi("Please enter a number: ", "foo bar") + 10;
@@ -244,16 +279,15 @@ def main():
     # i.run(badprog)
 
     # badprog = """
-    # func main() {   
+    # func main() {
     #     x = "foo" + 1;
     # }
     # """
 
     # i.run(badprog)
 
-
     # badprog = """
-    # func main() {   
+    # func main() {
     #     x = idk + 1;
     # }
     # """
@@ -261,7 +295,7 @@ def main():
     # i.run(badprog)
 
     # badprog = """
-    # func main() {   
+    # func main() {
     #     if("not a boolean") {
     #         print("illegal");
     #     }
@@ -282,7 +316,7 @@ def main():
     #     print("bar: ", a, " ", b);   /* prints bar: 10 20 */
     #     c = 30;
     #     foo();
-    # } 
+    # }
 
     # func main() {
     #     a = 10;

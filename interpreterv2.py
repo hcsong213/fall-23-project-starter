@@ -3,16 +3,19 @@ import copy
 from brewparse import parse_program
 from env_v1 import EnvironmentManager
 from intbase import ErrorType, InterpreterBase
-from operations_v2 import setup_ops, setup_unary_ops
+from operations_v2 import setup_comparisons, setup_ops, setup_unary_ops
 from type_valuev1 import Type, Value, create_value, get_printable
+
+MAX_ITER = 500
 
 
 # Main interpreter class
 class Interpreter(InterpreterBase):
     # constants
     NIL_VALUE = create_value(InterpreterBase.NIL_DEF)
-    BIN_OPS = {"+", "-", "*", "/", "==", "<", "<=", ">", ">=", "!=", "&&", "||"}
+    BIN_OPS = {"+", "-", "*", "/", "<", "<=", ">", ">=", "&&", "||"}
     UNARY_OPS = {"neg", "!"}
+    COMPARISONS = {"==", "!="}
 
     # methods
     def __init__(self, console_output=True, inp=None, trace_output=False):
@@ -20,7 +23,8 @@ class Interpreter(InterpreterBase):
         self.trace_output = trace_output
         self.op_to_lambda = setup_ops()
         self.unary_op_to_lambda = setup_unary_ops()
-        self.block_id_counter = 0
+        self.comparisons_to_lamda = setup_comparisons()
+        self.iter = 0
 
     # run a program that's provided in a string
     # usese the provided Parser found in brewparse.py to parse the program
@@ -61,6 +65,10 @@ class Interpreter(InterpreterBase):
         Returns:
             Value | None: Value Node if the statements include a return statement. None otherwise.
         """
+        self.iter = self.iter + 1
+        if self.iter > MAX_ITER:
+            return Interpreter.NIL_VALUE
+
         self.env.init_block_env()
 
         for statement in statements:
@@ -77,6 +85,7 @@ class Interpreter(InterpreterBase):
             elif statement.elem_type == InterpreterBase.RETURN_DEF:
                 # if self.trace_output:
                 #     print("Executing return")
+                self.iter = self.iter - 1
                 return self.__destroy_block_and_return(
                     self.__handle_return_statement(statement)
                 )
@@ -96,6 +105,15 @@ class Interpreter(InterpreterBase):
         func = self.__get_func_by_name(
             func_name, len(call_node.get("args"))
         )  # includes NAME_ERROR check
+
+        if self.trace_output:
+            print(
+                "Calling func ",
+                func.get("name"),
+                " with ",
+                len(func.get("args")),
+                " args.",
+            )
 
         self.env.init_block_env()
 
@@ -211,11 +229,16 @@ class Interpreter(InterpreterBase):
                 super().error(ErrorType.NAME_ERROR, f"Variable {var_name} not found")
             return val
         if expr_ast.elem_type == InterpreterBase.FCALL_DEF:
-            return self.__call_func(expr_ast)
+            res = self.__call_func(expr_ast)
+            if res is None:
+                return Interpreter.NIL_VALUE
+            return res
         if expr_ast.elem_type in Interpreter.BIN_OPS:
             return self.__eval_op(expr_ast)
         if expr_ast.elem_type in Interpreter.UNARY_OPS:
             return self.__eval_unary_op(expr_ast)
+        if expr_ast.elem_type in Interpreter.COMPARISONS:
+            return self.__eval_comp(expr_ast)
 
     def __eval_op(self, arith_ast):
         left_value_obj = self.__eval_expr(arith_ast.get("op1"))
@@ -243,11 +266,13 @@ class Interpreter(InterpreterBase):
         f = self.unary_op_to_lambda[value_obj.type()][arith_ast.elem_type]
         return f(value_obj)
 
+    def __eval_comp(self, arith_ast):
+        left_value_obj = self.__eval_expr(arith_ast.get("op1"))
+        right_value_obj = self.__eval_expr(arith_ast.get("op2"))
+        f = self.comparisons_to_lamda[arith_ast.elem_type]
+        return f(left_value_obj, right_value_obj)
+
     def __destroy_block_and_return(self, ret):
         ret_deep_copy = copy.deepcopy(ret)
         self.env.destroy_block_env()
         return ret_deep_copy
-
-    # def __link_args_to_params(self, args, params, block_id):
-    #     for a, p in zip(args, params):
-    #         self.env.set(p, a, block_id)

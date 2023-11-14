@@ -45,13 +45,18 @@ def setup_unary_ops():
     unary_op_to_lambda = {}
     # int
     unary_op_to_lambda[Type.INT] = {}
-    unary_op_to_lambda[Type.INT]["neg"] = lambda x: Value(
-        x.type(), -(x.value())
-    )
+    unary_op_to_lambda[Type.INT]["neg"] = lambda x: Value(x.type(), -(x.value()))
     # bool
     unary_op_to_lambda[Type.BOOL] = {}
-    unary_op_to_lambda[Type.BOOL]["!"] = lambda x: Value(
-        x.type(), not x.value()
-    )
+    unary_op_to_lambda[Type.BOOL]["!"] = lambda x: Value(x.type(), not x.value())
 
     return unary_op_to_lambda
+
+
+def setup_comparisons():
+    res = {}
+
+    res["=="] = lambda x, y: Value(Type.BOOL, x.value() == y.value())
+    res["!="] = lambda x, y: Value(Type.BOOL, x.value() != y.value())
+
+    return res

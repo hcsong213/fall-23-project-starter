@@ -1,4 +1,5 @@
 from enum import Enum
+
 from intbase import InterpreterBase
 
 
@@ -32,7 +33,7 @@ def create_value(val):
         return Value(Type.BOOL, True)
     elif val == InterpreterBase.FALSE_DEF:
         return Value(Type.BOOL, False)
-    elif val == InterpreterBase.NIL_DEF:
+    elif val in [InterpreterBase.NIL_DEF, None]:
         return Value(Type.NIL, None)
     elif isinstance(val, str):
         return Value(Type.STRING, val)
