@@ -2,6 +2,7 @@ import copy
 from enum import Enum
 
 from brewparse import parse_program
+from closure_v2 import Closure
 from env_v2 import EnvironmentManager
 from intbase import ErrorType, InterpreterBase
 from type_valuev2 import Type, Value, create_value, get_printable
@@ -18,6 +19,8 @@ class Interpreter(InterpreterBase):
     NIL_VALUE = create_value(InterpreterBase.NIL_DEF)
     TRUE_VALUE = create_value(InterpreterBase.TRUE_DEF)
     BIN_OPS = {"+", "-", "*", "/", "==", "!=", ">", ">=", "<", "<=", "||", "&&"}
+    INT_TO_BOOL_OPS = {"==", "!=", "||", "&&"}
+    BOOL_TO_INT_OPS = {"+", "-", "*", "/"}
 
     # methods
     def __init__(self, console_output=True, inp=None, trace_output=False):
@@ -51,24 +54,25 @@ class Interpreter(InterpreterBase):
             if len(overloads) == 1:
                 if self.trace_output:
                     print("function variable alias created")
-                self.env.create_bottom(name, Value(InterpreterBase.FUNC_DEF, name))
+                    print(overloads)
+                func_def = next(iter(overloads.values()))
+                self.env.create(name, Value(Type.FUNC, func_def))
 
     def __get_func_by_name(self, name, num_params):
         # check vars
-        func_value =  self.env.get_bottom(name)
-        if func_value is not None:
-            func_name = func_value.value()
-            return self.func_name_to_ast[func_name][num_params]
+        func = self.env.get(name)
+        if func is not None and func.type() in [Type.FUNC, Type.LAMBDA]:
+            return func.value()
         # else, check self.func_name_to_ast (needed for overloaded functions)
-        if name not in self.func_name_to_ast:
-            super().error(ErrorType.NAME_ERROR, f"Function {name} not found")
-        candidate_funcs = self.func_name_to_ast[name]
-        if num_params not in candidate_funcs:
-            super().error(
-                ErrorType.NAME_ERROR,
-                f"Function {name} taking {num_params} params not found",
-            )
-        return candidate_funcs[num_params]
+        if name in self.func_name_to_ast:
+            candidate_funcs = self.func_name_to_ast[name]
+            if num_params not in candidate_funcs:
+                super().error(
+                    ErrorType.NAME_ERROR,
+                    f"Function {name} taking {num_params} params not found",
+                )
+            return candidate_funcs[num_params]
+        super().error(ErrorType.NAME_ERROR, f"Function {name} not found")
 
     def __run_statements(self, statements):
         self.env.push()
@@ -113,6 +117,14 @@ class Interpreter(InterpreterBase):
                 ErrorType.NAME_ERROR,
                 f"Function {func_ast.get('name')} with {len(actual_args)} args not found",
             )
+
+        if func_ast.elem_type == InterpreterBase.LAMBDA_DEF:
+            env_captured = func_ast.get("captures")
+            len_env = len(env_captured)
+            if self.trace_output:
+                print(env_captured, len_env)
+            self.env.append_env(env_captured)
+
         self.env.push()
         for formal_ast, actual_ast in zip(formal_args, actual_args):
             result = copy.deepcopy(self.__eval_expr(actual_ast))
@@ -120,6 +132,10 @@ class Interpreter(InterpreterBase):
             self.env.create(arg_name, result)
         _, return_val = self.__run_statements(func_ast.get("statements"))
         self.env.pop()
+
+        if func_ast.elem_type == InterpreterBase.LAMBDA_DEF:
+            self.env.pop_n_times(len_env)
+
         return return_val
 
     def __call_print(self, call_ast):
@@ -147,11 +163,10 @@ class Interpreter(InterpreterBase):
 
     def __assign(self, assign_ast):
         var_name = assign_ast.get("name")
+        if self.trace_output:
+            print(assign_ast.get("expression").elem_type)
         value_obj = self.__eval_expr(assign_ast.get("expression"))
-        if value_obj.type() == InterpreterBase.FUNC_DEF:
-            self.env.create_bottom(var_name, value_obj)
-        else:
-            self.env.set(var_name, value_obj)
+        self.env.set(var_name, value_obj)
 
     def __eval_expr(self, expr_ast):
         if expr_ast.elem_type == InterpreterBase.NIL_DEF:
@@ -170,6 +185,11 @@ class Interpreter(InterpreterBase):
             return val
         if expr_ast.elem_type == InterpreterBase.FCALL_DEF:
             return self.__call_func(expr_ast)
+        if expr_ast.elem_type == InterpreterBase.LAMBDA_DEF:
+            if self.trace_output:
+                print("evaluating lambda def")
+            expr_ast.dict["captures"] = copy.deepcopy(self.env.get_env())
+            return Value(Type.LAMBDA, expr_ast)
         if expr_ast.elem_type in Interpreter.BIN_OPS:
             return self.__eval_op(expr_ast)
         if expr_ast.elem_type == Interpreter.NEG_DEF:
@@ -187,6 +207,12 @@ class Interpreter(InterpreterBase):
                 ErrorType.TYPE_ERROR,
                 f"Incompatible types for {arith_ast.elem_type} operation",
             )
+        if arith_ast.elem_type in self.INT_TO_BOOL_OPS:
+            left_value_obj = self.__int_to_bool(left_value_obj)
+            right_value_obj = self.__int_to_bool(right_value_obj)
+        if arith_ast.elem_type in self.BOOL_TO_INT_OPS:
+            left_value_obj = self.__bool_to_int(left_value_obj)
+            right_value_obj = self.__bool_to_int(right_value_obj)
         if arith_ast.elem_type not in self.op_to_lambda[left_value_obj.type()]:
             super().error(
                 ErrorType.TYPE_ERROR,
@@ -199,7 +225,13 @@ class Interpreter(InterpreterBase):
         # DOCUMENT: allow comparisons ==/!= of anything against anything
         if oper in ["==", "!="]:
             return True
-        return obj1.type() == obj2.type()
+        if obj1.type() == obj2.type():
+            return True
+        if oper in self.INT_TO_BOOL_OPS or oper in self.BOOL_TO_INT_OPS:
+            return obj1.type() in [Type.INT, Type.BOOL] and obj2.type() in [
+                Type.INT,
+                Type.BOOL,
+            ]
 
     def __eval_unary(self, arith_ast, t, f):
         value_obj = self.__eval_expr(arith_ast.get("op1"))
@@ -323,3 +355,17 @@ class Interpreter(InterpreterBase):
             return (ExecStatus.RETURN, Interpreter.NIL_VALUE)
         value_obj = copy.deepcopy(self.__eval_expr(expr_ast))
         return (ExecStatus.RETURN, value_obj)
+
+    def __bool_to_int(self, inp):
+        if inp.type() == Type.BOOL:
+            if inp.value() == True:
+                return create_value(1)
+            return create_value(0)
+        return inp
+
+    def __int_to_bool(self, inp):
+        if inp.type() == Type.INT:
+            if inp.value() == 0:
+                return create_value(False)
+            return create_value(True)
+        return inp

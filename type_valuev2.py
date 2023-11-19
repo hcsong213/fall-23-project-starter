@@ -1,4 +1,5 @@
 from enum import Enum
+
 from intbase import InterpreterBase
 
 
@@ -7,7 +8,9 @@ class Type(Enum):
     INT = 1
     BOOL = 2
     STRING = 3
-    NIL = 4
+    FUNC = 4
+    LAMBDA = 5
+    NIL = 6
 
 
 # Represents a value, which has a type and its value

@@ -1,38 +1,25 @@
 from interpreterv2 import Interpreter
 
 
-def main():
-    i = Interpreter(trace_output=False)
+def notmain():
+    i = Interpreter(trace_output=True)
 
     prog = """
     func main() {
-        print("main");
-        x = foo;
-        x();
-    }
+        b = 5;
+        f = lambda(a) { print(a*b); }; /* captures b = 5 by making a copy */
+        b = 7;                         /* has no impact on captured b */
 
-    func foo() {
-        print("foo");
-    }
-
-    func bar() {
-        print("bar");
-    }
-
-    func overload() {
-        print("overload");
-    }
-
-    func overload(n) {
-        print(n);
+        f(3);     /* prints 15 */
+        print(b); /* prints 7 */
     }
     """
 
     i.run(prog)
 
 
-def notmain():
-    i = Interpreter(trace_output=True)
+def main():
+    i = Interpreter(trace_output=False)
 
     prog = """
     func main() {   
@@ -297,6 +284,47 @@ def notmain():
 
     i.run(prog)
 
+    prog = """
+    func main() {
+        a = foo;
+        a();
+    }
+
+    func foo() {
+        print("foo");
+    }
+
+    func bar() {
+        print("bar");
+    }
+
+    func overload() {
+        print("overload");
+    }
+
+    func overload(n) {
+        print(n);
+    }
+    """
+
+    i.run(prog)
+
+    prog = """
+    func main() {
+        a = -5;
+        if (true == a) { print("This will print!"); }
+
+        if (false || 6) { print("This prints!"); }
+
+        x = true + 6; /* x is 7 */
+        y = false * 10; /* y is zero */ 
+        z = true + true; /* z is 2 */
+        print(x, y, z);
+    }
+    """
+
+    i.run(prog)
+
     # badprog = """
     # func main() {
     #     i = inputi("Please enter a number: ", "foo bar") + 10;
@@ -363,15 +391,16 @@ def notmain():
 
     # i.run(badprog)
 
-    badprog = """
-    func main() {
-        print(!false);
-        print(!2);
-    }
-    """
+    # badprog = """
+    # func main() {
+    #     print(!false);
+    #     print(!2);
+    # }
+    # """
 
-    i.run(badprog)
+    # i.run(badprog)
 
 
 if __name__ == "__main__":
     main()
+    notmain()
