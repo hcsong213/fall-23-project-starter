@@ -115,8 +115,6 @@ class Interpreter(InterpreterBase):
             return self.__call_print(call_ast)
         if func_name == "inputi":
             return self.__call_input(call_ast)
-        if func_name == "inputs":
-            return self.__call_input(call_node)
 
         actual_args = call_ast.get("args")
         target_closure = self.__get_func_by_name(func_name, len(actual_args))
