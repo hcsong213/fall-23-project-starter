@@ -36,20 +36,17 @@ class Value:
         self.t = other.t
         self.v = other.v
 
-
 def create_value(val):
     if val == InterpreterBase.TRUE_DEF:
         return Value(Type.BOOL, True)
     elif val == InterpreterBase.FALSE_DEF:
         return Value(Type.BOOL, False)
-    elif isinstance(val, str):
-        return Value(Type.STRING, val)
     elif isinstance(val, int):
         return Value(Type.INT, val)
     elif val == InterpreterBase.NIL_DEF:
         return Value(Type.NIL, None)
-    else:
-        raise ValueError("Unknown value type")
+    elif isinstance(val, str):
+        return Value(Type.STRING, val)
 
 
 def get_printable(val):
