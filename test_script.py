@@ -363,6 +363,21 @@ def main():
 
     i.run(prog)
 
+    prog = """
+        func main() {
+            c = lambda() { print(1); };
+
+            /* d captures closure c by reference */
+            d = lambda() { c = lambda() { print(2); }; };
+
+            d();
+            print("I should print 2:");
+            c();  /* prints 2, since c was captured by reference by d */
+        }
+    """
+
+    i.run(prog)
+
     # badprog = """
     # func main() {
     #     i = inputi("Please enter a number: ", "foo bar") + 10;
@@ -438,6 +453,26 @@ def main():
 
     # i.run(badprog)
 
+    # i.run(badprog)
+
+    badprog = """
+        func main() {
+            c = @;
+            c.x = 5;
+
+            /* d captures object c by object reference */
+            d = lambda() {
+            c = @;  /* changes original c variable, pointing it at a new obj */
+            c.y = 10; /* adds field y to updated object */
+            };
+
+            d();
+            print(c.y); /* prints 10 */
+            print(c.x); /* NAME_ERROR since our original object is gone! */
+        }
+    """
+
+    i.run(badprog)
 
 if __name__ == "__main__":
     main()

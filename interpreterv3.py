@@ -216,16 +216,7 @@ class Interpreter(InterpreterBase):
         src_value_obj = copy.copy(self.__eval_expr(assign_ast.get("expression")))
 
         if "." in var_name:
-            idx = var_name.find(".")
-            objref = var_name[:idx]
-            member = var_name[idx + 1 :]
-            object_value = self.env.get(objref)
-            if object_value is None:
-                super().error(
-                    ErrorType.NAME_ERROR,
-                    f"Object {objref} in {var_name} does not exist.",
-                )
-            object_object = object_value.value()
+            _, member, object_object = self.__get_object(var_name)
             object_object.set(member, src_value_obj)
         else:
             target_value_obj = self.env.get(var_name)
@@ -239,9 +230,6 @@ class Interpreter(InterpreterBase):
                 ):
                     target_value_obj.v.type = src_value_obj.t
                 target_value_obj.set(src_value_obj)
-
-        if "." in var_name and self.trace_output:
-            print(object_value.value())
 
     def __eval_expr(self, expr_ast):
         if expr_ast.elem_type == InterpreterBase.NIL_DEF:
@@ -275,8 +263,27 @@ class Interpreter(InterpreterBase):
         closure = self.__get_func_by_name(var_name, None)
         if closure is not None:
             return Value(Type.CLOSURE, closure)
-        
+        _, member, obj = self.__get_object(var_name)
+        if obj is not None and obj.get(member) is not None:
+            return obj.get(member)
+
         super().error(ErrorType.NAME_ERROR, f"Variable/function {var_name} not found")
+
+    def __get_object(self, var_name):
+        if "." in var_name:
+            idx = var_name.find(".")
+            objref = var_name[:idx]
+            member = var_name[idx + 1 :]
+            object_value = self.env.get(objref)
+            if object_value is None:
+                super().error(
+                    ErrorType.NAME_ERROR,
+                    f"Object {objref} in {var_name} does not exist.",
+                )
+            object_object = object_value.value()
+            return (objref, member, object_object)
+        else:
+            return (None, None, None)
 
     def __eval_op(self, arith_ast):
         left_value_obj = self.__eval_expr(arith_ast.get("op1"))
@@ -488,6 +495,7 @@ class Interpreter(InterpreterBase):
         if expr_ast is None:
             return (ExecStatus.RETURN, Interpreter.NIL_VALUE)
         value_obj = copy.deepcopy(self.__eval_expr(expr_ast))
+        return (ExecStatus.RETURN, value_obj)
         return (ExecStatus.RETURN, value_obj)
         return (ExecStatus.RETURN, value_obj)
         return (ExecStatus.RETURN, value_obj)
