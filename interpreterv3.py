@@ -3,8 +3,9 @@ from enum import Enum
 
 from brewparse import parse_program
 from env_v3 import EnvironmentManager
-from intbase import InterpreterBase, ErrorType
-from type_valuev3 import Closure, Type, Value, create_value, get_printable
+from intbase import ErrorType, InterpreterBase
+from type_valuev3 import (Closure, Object, Type, Value, create_value,
+                          get_printable)
 
 
 class ExecStatus(Enum):
@@ -34,7 +35,7 @@ class Interpreter(InterpreterBase):
         self.env = EnvironmentManager()
         main_func = self.__get_func_by_name("main", 0)
         if main_func is None:
-            super().error(ErrorType.NAME_ERROR, f"Function {name} not found")
+            super().error(ErrorType.NAME_ERROR, "Function main not found")
         self.__run_statements(main_func.func_ast.get("statements"))
 
     def __set_up_function_table(self, ast):
@@ -108,7 +109,6 @@ class Interpreter(InterpreterBase):
         self.env.pop()
         return (ExecStatus.CONTINUE, Interpreter.NIL_VALUE)
 
-
     def __call_func(self, call_ast):
         func_name = call_ast.get("name")
         if func_name == "print":
@@ -121,12 +121,15 @@ class Interpreter(InterpreterBase):
         if target_closure == None:
             super().error(ErrorType.NAME_ERROR, f"Function {func_name} not found")
         if target_closure.type != Type.CLOSURE:
-            super().error(ErrorType.TYPE_ERROR, f"Function {func_name} is changed to non-function type.")
+            super().error(
+                ErrorType.TYPE_ERROR,
+                f"Function {func_name} is changed to non-function type.",
+            )
         target_ast = target_closure.func_ast
 
         new_env = {}
         self.__prepare_env_with_closed_variables(target_closure, new_env)
-        self.__prepare_params(target_ast,call_ast, new_env)
+        self.__prepare_params(target_ast, call_ast, new_env)
         self.env.push(new_env)
         _, return_val = self.__run_statements(target_ast.get("statements"))
         self.env.pop()
@@ -137,7 +140,6 @@ class Interpreter(InterpreterBase):
             # Updated here - ignore updates to the scope if we
             #   altered a parameter, or if the argument is a similarly named variable
             temp_env[var_name] = value
-
 
     def __prepare_params(self, target_ast, call_ast, temp_env):
         actual_args = call_ast.get("args")
@@ -182,14 +184,29 @@ class Interpreter(InterpreterBase):
     def __assign(self, assign_ast):
         var_name = assign_ast.get("name")
         src_value_obj = copy.copy(self.__eval_expr(assign_ast.get("expression")))
-        target_value_obj = self.env.get(var_name)
+        target_value_obj = None
+
+        # Parsing of object + field goes here
+        if "." in var_name:
+            idx = var_name.find(".")
+            objref = var_name[:idx]
+            member = var_name[idx + 1 :]
+            target_objref = self.env.get(objref)
+            if target_objref is not None:
+                target_value_obj = target_objref.get(member)
+        else:
+            target_value_obj = self.env.get(var_name)
+
         if target_value_obj is None:
             self.env.set(var_name, src_value_obj)
         else:
-                        # if a close is changed to another type such as int, we cannot make function calls on it any more 
+            # Type update for Closures (canonical solution)
             if target_value_obj.t == Type.CLOSURE and src_value_obj.t != Type.CLOSURE:
                 target_value_obj.v.type = src_value_obj.t
             target_value_obj.set(src_value_obj)
+
+        if "." in var_name and self.trace_output:
+            print(target_objref)
 
     def __eval_expr(self, expr_ast):
         if expr_ast.elem_type == InterpreterBase.NIL_DEF:
@@ -212,6 +229,8 @@ class Interpreter(InterpreterBase):
             return self.__eval_unary(expr_ast, Type.BOOL, lambda x: not x)
         if expr_ast.elem_type == Interpreter.LAMBDA_DEF:
             return Value(Type.CLOSURE, Closure(expr_ast, self.env))
+        if expr_ast.elem_type == Interpreter.OBJ_DEF:
+            return Value(Type.OBJECT, Object())
 
     def __eval_name(self, name_ast):
         var_name = name_ast.get("name")
@@ -225,12 +244,9 @@ class Interpreter(InterpreterBase):
             )
         return Value(Type.CLOSURE, closure)
 
-    
-
     def __eval_op(self, arith_ast):
         left_value_obj = self.__eval_expr(arith_ast.get("op1"))
         right_value_obj = self.__eval_expr(arith_ast.get("op2"))
-
 
         left_value_obj, right_value_obj = self.__bin_op_promotion(
             arith_ast.elem_type, left_value_obj, right_value_obj
@@ -255,10 +271,12 @@ class Interpreter(InterpreterBase):
     # bool and int, int and bool for arithmetic ops, coerce true to 1, false to 0
     def __bin_op_promotion(self, operation, op1, op2):
         if operation in self.op_to_lambda[Type.BOOL]:  # && or ||
-            
             # If this operation is still allowed in the ints, then continue
-            if operation in self.op_to_lambda[Type.INT] and op1.type() == Type.INT \
-                and op2.type() == Type.INT:
+            if (
+                operation in self.op_to_lambda[Type.INT]
+                and op1.type() == Type.INT
+                and op2.type() == Type.INT
+            ):
                 pass
             else:
                 if op1.type() == Type.INT:

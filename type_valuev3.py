@@ -1,6 +1,6 @@
 import copy
-
 from enum import Enum
+
 from intbase import InterpreterBase
 
 
@@ -11,6 +11,21 @@ class Type(Enum):
     STRING = 3
     CLOSURE = 4
     NIL = 5
+    OBJECT = 6
+
+
+class Object:
+    def __init__(self):
+        self.dict = {}
+
+    def get(self, field):
+        pass
+
+    def set(self, field, val):
+        self.dict[field] = val
+
+    def __str__(self):
+        return str(self.dict)
 
 
 class Closure:
@@ -35,6 +50,7 @@ class Value:
     def set(self, other):
         self.t = other.t
         self.v = other.v
+
 
 def create_value(val):
     if val == InterpreterBase.TRUE_DEF:

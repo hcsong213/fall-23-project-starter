@@ -31,7 +31,7 @@ class EnvironmentManager:
         self.environment[-1][symbol] = value
 
     # used when we enter a nested block to create a new environment for that block
-    def push(self, env = None):
+    def push(self, env=None):
         if env is None:
             self.environment.append({})  # [{}] -> [{}, {}]
         else:
@@ -45,10 +45,13 @@ class EnvironmentManager:
         captured_so_far = set()
         for captured in reversed(self.environment):
             for var_name, value in captured.items():
+                # @Bryan: Probably skip variables that point to closures or objects 
+                # (so that these variable can be passed by reference)
                 if var_name in captured_so_far:
                     continue
                 captured_so_far.add(var_name)
                 yield (var_name, value)
 
     def __iter__(self):
+        # For usage of env as an iterable, see Interpreter.__prepare_env_with_closed_variables
         return self.__enumerate()
