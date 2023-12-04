@@ -1,8 +1,8 @@
-from interpreterv3 import Interpreter
+from interpreterv4 import Interpreter
 
 
 def notmain():
-    i = Interpreter(trace_output=True)
+    i = Interpreter(trace_output=False)
 
     prog = """
     func main() {
@@ -10,7 +10,13 @@ def notmain():
         a.name = "Greg";
         a.say_name = lambda() { print(this.name); };
         a.say_hi = lambda() { print("hi"); };
+        a.name();
 
+        child = @;
+        child.proto = a;
+        child.name = "Billy";
+        child.say_hi();
+        child.say_name();
         a.say_name();
     }
     """
@@ -20,6 +26,24 @@ def notmain():
 
 def main():
     i = Interpreter(trace_output=False)
+
+    prog = """
+    func main() {
+        a = @;
+        a.name = "Greg";
+        a.say_name = lambda() { print(this.name); };
+        a.say_hi = lambda() { print("hi"); };
+
+        child = @;
+        child.proto = a;
+        child.name = "Billy";
+        child.say_hi();
+        child.say_name();
+        a.say_name();
+    }
+    """
+
+    i.run(prog)
 
     prog = """
     func main() {   
@@ -487,6 +511,7 @@ def main():
 
     # i.run(badprog)
 
+
 if __name__ == "__main__":
-    main()
-    # notmain()
+    # main()
+    notmain()

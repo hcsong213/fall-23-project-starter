@@ -13,19 +13,35 @@ class Type(Enum):
     NIL = 5
     OBJECT = 6
 
+class Result(Enum):
+    SUCCESS = 0
+    FAILURE = 1
+
 
 class Object:
     def __init__(self):
         self.dict = {}
 
     def get(self, field):
-        if field in self.dict:
-            return self.dict[field]
-        
+        d = self.dict
+        while d is not None:
+            if field in d:
+                return d[field]
+
+            if "proto" in d:
+                p_value = d["proto"]
+                p_obj = p_value.value()
+                d = p_obj.dict
+            else:
+                d = None
+
         return None
 
     def set(self, field, val):
+        if field == "proto" and val.type() != Type.OBJECT:
+            return Result.FAILURE
         self.dict[field] = val
+        return Result.SUCCESS
 
     def __str__(self):
         return str(self.dict)

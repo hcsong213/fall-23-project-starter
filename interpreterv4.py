@@ -4,7 +4,7 @@ from enum import Enum
 from brewparse import parse_program
 from env_v3 import EnvironmentManager
 from intbase import ErrorType, InterpreterBase
-from type_valuev3 import (Closure, Object, Type, Value, create_value,
+from type_valuev3 import (Closure, Object, Result, Type, Value, create_value,
                           get_printable)
 
 
@@ -146,7 +146,7 @@ class Interpreter(InterpreterBase):
 
         if target_closure is None:
             super().error(ErrorType.NAME_ERROR, f"Function {func_name} not found")
-        if target_closure.type != Type.CLOSURE:
+        if not hasattr(target_closure, "type") or target_closure.type != Type.CLOSURE:
             if self.trace_output:
                 print(target_closure)
                 print(target_closure.type)
@@ -219,7 +219,12 @@ class Interpreter(InterpreterBase):
 
         if "." in var_name:
             _, member, object_object = self.__get_object(var_name)
-            object_object.set(member, src_value_obj)
+            res = object_object.set(member, src_value_obj)
+            if res == Result.FAILURE:
+                super().error(
+                    ErrorType.TYPE_ERROR,
+                    "Can only assign Object to proto",
+                )
         else:
             target_value_obj = self.env.get(var_name)
             if target_value_obj is None:
