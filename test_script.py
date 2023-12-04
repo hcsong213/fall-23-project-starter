@@ -11,7 +11,7 @@ def notmain():
         a.say_name = lambda() { print(this.name); };
         a.say_hi = lambda() { print("hi"); };
 
-        a.say_hi();
+        a.say_name();
     }
     """
 
@@ -378,6 +378,19 @@ def main():
 
     i.run(prog)
 
+    prog = """
+    func main() {
+        a = @;
+        a.name = "Greg";
+        a.say_name = lambda() { print(this.name); };
+        a.say_hi = lambda() { print("hi"); };
+
+        a.say_name();
+    }
+    """
+
+    i.run(prog)
+
     # badprog = """
     # func main() {
     #     i = inputi("Please enter a number: ", "foo bar") + 10;
@@ -455,24 +468,24 @@ def main():
 
     # i.run(badprog)
 
-    badprog = """
-        func main() {
-            c = @;
-            c.x = 5;
+    # badprog = """
+    #     func main() {
+    #         c = @;
+    #         c.x = 5;
 
-            /* d captures object c by object reference */
-            d = lambda() {
-            c = @;  /* changes original c variable, pointing it at a new obj */
-            c.y = 10; /* adds field y to updated object */
-            };
+    #         /* d captures object c by object reference */
+    #         d = lambda() {
+    #         c = @;  /* changes original c variable, pointing it at a new obj */
+    #         c.y = 10; /* adds field y to updated object */
+    #         };
 
-            d();
-            print(c.y); /* prints 10 */
-            print(c.x); /* NAME_ERROR since our original object is gone! */
-        }
-    """
+    #         d();
+    #         print(c.y); /* prints 10 */
+    #         print(c.x); /* NAME_ERROR since our original object is gone! */
+    #     }
+    # """
 
-    i.run(badprog)
+    # i.run(badprog)
 
 if __name__ == "__main__":
     main()

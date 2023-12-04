@@ -160,6 +160,8 @@ class Interpreter(InterpreterBase):
         self.__prepare_env_with_closed_variables(target_closure, new_env)
         self.__prepare_params(target_ast, call_ast, new_env)
         self.env.push(new_env)
+        if call_ast.elem_type == "mcall":
+            self.env.create("this", object_value)
         _, return_val = self.__run_statements(target_ast.get("statements"))
         self.env.pop()
         return return_val
