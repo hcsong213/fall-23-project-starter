@@ -1,4 +1,4 @@
-from interpreterv2 import Interpreter
+from interpreterv3 import Interpreter
 
 
 def notmain():
@@ -6,12 +6,12 @@ def notmain():
 
     prog = """
     func main() {
-        b = 5;
-        f = lambda(a) { print(a*b); }; /* captures b = 5 by making a copy */
-        b = 7;                         /* has no impact on captured b */
+        a = @;
+        a.name = "Greg";
+        a.say_name = lambda() { print(this.name); };
+        a.say_hi = lambda() { print("hi"); };
 
-        f(3);     /* prints 15 */
-        print(b); /* prints 7 */
+        a.say_hi();
     }
     """
 
@@ -285,10 +285,6 @@ def main():
     i.run(prog)
 
     prog = """
-    func main() {
-        a = foo;
-        a();
-    }
 
     func foo() {
         print("foo");
@@ -304,6 +300,11 @@ def main():
 
     func overload(n) {
         print(n);
+    }
+
+    func main() {
+        a = foo;
+        a();
     }
     """
 
@@ -328,9 +329,36 @@ def main():
     prog = """
     func main() {
         a = @;
-        a.name = "Greg"
-        a.say_name = lambda() { print(this.name); }
+        a.name = "Greg";
+        a.say_name = lambda() { print(this.name); };
     }
+    """
+
+    i.run(prog)
+
+    prog = """
+    func main() {
+        a = @;
+        a.name = "Greg";
+        a.say_name = lambda() { print(this.name); };
+        a.say_hi = lambda() { print("hi"); };
+
+        a.say_hi();
+    }
+    """
+
+    i.run(prog)
+
+    prog = """
+        func main() {
+            c = @;
+            /* d captures object c by object reference */ 
+            d = lambda() { c.x = 5; };
+
+            d();  
+            print("I should print 5:");
+            print(c.x);  /* prints 5, since closure modified original object */
+        }
     """
 
     i.run(prog)

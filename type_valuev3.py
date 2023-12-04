@@ -19,7 +19,10 @@ class Object:
         self.dict = {}
 
     def get(self, field):
-        pass
+        if field in self.dict:
+            return self.dict[field]
+        
+        return None
 
     def set(self, field, val):
         self.dict[field] = val

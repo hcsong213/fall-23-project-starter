@@ -91,7 +91,10 @@ class Interpreter(InterpreterBase):
             if self.trace_output:
                 print(statement)
             status = ExecStatus.CONTINUE
-            if statement.elem_type == InterpreterBase.FCALL_DEF:
+            if statement.elem_type in (
+                InterpreterBase.FCALL_DEF,
+                InterpreterBase.MCALL_DEF,
+            ):
                 self.__call_func(statement)
             elif statement.elem_type == "=":
                 self.__assign(statement)
@@ -110,17 +113,43 @@ class Interpreter(InterpreterBase):
         return (ExecStatus.CONTINUE, Interpreter.NIL_VALUE)
 
     def __call_func(self, call_ast):
-        func_name = call_ast.get("name")
-        if func_name == "print":
-            return self.__call_print(call_ast)
-        if func_name == "inputi":
-            return self.__call_input(call_ast)
+        if call_ast.elem_type == "mcall":
+            # want target_closure and target_ast
+            object_name = call_ast.get("objref")
+            method_name = call_ast.get("name")
+            func_name = object_name + "." + method_name
 
-        actual_args = call_ast.get("args")
-        target_closure = self.__get_func_by_name(func_name, len(actual_args))
-        if target_closure == None:
+            object_value = self.env.get(object_name)
+            if object_value is None:
+                super().error(ErrorType.NAME_ERROR, f"Object {object_name} not found")
+            if object_value.type() != Type.OBJECT:
+                super().error(
+                    ErrorType.TYPE_ERROR,
+                    f"Variable {object_name} is not an object. Trying to call method on non-object",
+                )
+            object_object = object_value.value()
+            method_query_res = object_object.get(method_name)
+            if method_query_res is None:
+                super().error(
+                    ErrorType.NAME_ERROR,
+                    f"Object {object_name} does not have method {method_name}",
+                )
+            target_closure = method_query_res.value()
+        else:
+            func_name = call_ast.get("name")
+            if func_name == "print":
+                return self.__call_print(call_ast)
+            if func_name == "inputi":
+                return self.__call_input(call_ast)
+            actual_args = call_ast.get("args")
+            target_closure = self.__get_func_by_name(func_name, len(actual_args))
+
+        if target_closure is None:
             super().error(ErrorType.NAME_ERROR, f"Function {func_name} not found")
         if target_closure.type != Type.CLOSURE:
+            if self.trace_output:
+                print(target_closure)
+                print(target_closure.type)
             super().error(
                 ErrorType.TYPE_ERROR,
                 f"Function {func_name} is changed to non-function type.",
@@ -139,7 +168,8 @@ class Interpreter(InterpreterBase):
         for var_name, value in target_closure.captured_env:
             # Updated here - ignore updates to the scope if we
             #   altered a parameter, or if the argument is a similarly named variable
-            temp_env[var_name] = value
+            if value.type() not in (Type.CLOSURE, Type.OBJECT):
+                temp_env[var_name] = value
 
     def __prepare_params(self, target_ast, call_ast, temp_env):
         actual_args = call_ast.get("args")
@@ -184,29 +214,34 @@ class Interpreter(InterpreterBase):
     def __assign(self, assign_ast):
         var_name = assign_ast.get("name")
         src_value_obj = copy.copy(self.__eval_expr(assign_ast.get("expression")))
-        target_value_obj = None
 
-        # Parsing of object + field goes here
         if "." in var_name:
             idx = var_name.find(".")
             objref = var_name[:idx]
             member = var_name[idx + 1 :]
-            target_objref = self.env.get(objref)
-            if target_objref is not None:
-                target_value_obj = target_objref.get(member)
+            object_value = self.env.get(objref)
+            if object_value is None:
+                super().error(
+                    ErrorType.NAME_ERROR,
+                    f"Object {objref} in {var_name} does not exist.",
+                )
+            object_object = object_value.value()
+            object_object.set(member, src_value_obj)
         else:
             target_value_obj = self.env.get(var_name)
-
-        if target_value_obj is None:
-            self.env.set(var_name, src_value_obj)
-        else:
-            # Type update for Closures (canonical solution)
-            if target_value_obj.t == Type.CLOSURE and src_value_obj.t != Type.CLOSURE:
-                target_value_obj.v.type = src_value_obj.t
-            target_value_obj.set(src_value_obj)
+            if target_value_obj is None:
+                self.env.set(var_name, src_value_obj)
+            else:
+                # Type update for Closures (canonical solution)
+                if (
+                    target_value_obj.t == Type.CLOSURE
+                    and src_value_obj.t != Type.CLOSURE
+                ):
+                    target_value_obj.v.type = src_value_obj.t
+                target_value_obj.set(src_value_obj)
 
         if "." in var_name and self.trace_output:
-            print(target_objref)
+            print(object_value.value())
 
     def __eval_expr(self, expr_ast):
         if expr_ast.elem_type == InterpreterBase.NIL_DEF:
@@ -238,11 +273,10 @@ class Interpreter(InterpreterBase):
         if val is not None:
             return val
         closure = self.__get_func_by_name(var_name, None)
-        if closure is None:
-            super().error(
-                ErrorType.NAME_ERROR, f"Variable/function {var_name} not found"
-            )
-        return Value(Type.CLOSURE, closure)
+        if closure is not None:
+            return Value(Type.CLOSURE, closure)
+        
+        super().error(ErrorType.NAME_ERROR, f"Variable/function {var_name} not found")
 
     def __eval_op(self, arith_ast):
         left_value_obj = self.__eval_expr(arith_ast.get("op1"))
@@ -398,6 +432,15 @@ class Interpreter(InterpreterBase):
             Type.BOOL, x.value() != y.value()
         )
 
+        #  set up operations on objects
+        self.op_to_lambda[Type.OBJECT] = {}
+        self.op_to_lambda[Type.OBJECT]["=="] = lambda x, y: Value(
+            Type.BOOL, x.value() is y.value()
+        )
+        self.op_to_lambda[Type.OBJECT]["!="] = lambda x, y: Value(
+            Type.BOOL, x.value() is not y.value()
+        )
+
     def __do_if(self, if_ast):
         cond_ast = if_ast.get("condition")
         result = self.__eval_expr(cond_ast)
@@ -445,4 +488,8 @@ class Interpreter(InterpreterBase):
         if expr_ast is None:
             return (ExecStatus.RETURN, Interpreter.NIL_VALUE)
         value_obj = copy.deepcopy(self.__eval_expr(expr_ast))
+        return (ExecStatus.RETURN, value_obj)
+        return (ExecStatus.RETURN, value_obj)
+        return (ExecStatus.RETURN, value_obj)
+        return (ExecStatus.RETURN, value_obj)
         return (ExecStatus.RETURN, value_obj)
