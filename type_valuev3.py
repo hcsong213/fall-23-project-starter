@@ -28,7 +28,7 @@ class Object:
             if field in d:
                 return d[field]
 
-            if "proto" in d:
+            if "proto" in d and d["proto"].type() != Type.NIL:
                 p_value = d["proto"]
                 p_obj = p_value.value()
                 d = p_obj.dict
@@ -38,7 +38,7 @@ class Object:
         return None
 
     def set(self, field, val):
-        if field == "proto" and val.type() != Type.OBJECT:
+        if field == "proto" and val.type() not in (Type.OBJECT, Type.NIL):
             return Result.FAILURE
         self.dict[field] = val
         return Result.SUCCESS

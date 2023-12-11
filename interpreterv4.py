@@ -287,6 +287,11 @@ class Interpreter(InterpreterBase):
                     ErrorType.NAME_ERROR,
                     f"Object {objref} in {var_name} does not exist.",
                 )
+            if object_value.type() != Type.OBJECT:
+                super().error(
+                    ErrorType.TYPE_ERROR,
+                    f"Variable {objref} in {var_name} is not an object.",
+                )
             object_object = object_value.value()
             return (objref, member, object_object)
         else:

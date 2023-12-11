@@ -6,18 +6,15 @@ def notmain():
 
     prog = """
     func main() {
-        a = @;
-        a.name = "Greg";
-        a.say_name = lambda() { print(this.name); };
-        a.say_hi = lambda() { print("hi"); };
-        a.name();
+        p = @;
+        p.x = 10;
 
-        child = @;
-        child.proto = a;
-        child.name = "Billy";
-        child.say_hi();
-        child.say_name();
-        a.say_name();
+        c = @;
+        c.proto = p;
+
+        print(c.x);
+        c.proto = nil;
+        print(c.x);
     }
     """
 
